@@ -1,61 +1,62 @@
 import streamlit as st
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
+from mongo_helper import create_user, authenticate_user
 
-# -------------------------------
-# Create Stock Market Data
-# -------------------------------
-Data = {
-    "Customer ID": ["C01", "C02", "C03", "C04", "C05", "C06", "C07"],
-    "Date": ["1-11-2025", "2-11-2025", "3-11-2025", "4-11-2025", "5-11-2025", "6-11-2025", "7-11-2025"],
-    "Stock Price": [100, 111, 101, 103, 104, 118, 106],
-    "CP": [95, 98, 99, 100, 102, 104, 105],
-    "SP": [100, 102, 101, 104, 107, 106, 108]
-}
+st.set_page_config(page_title="Stock Portfolio App", layout="centered")
 
-df = pd.DataFrame(Data)
+st.title("📈 Stock Portfolio Dashboard")
 
-# Calculate Profit/Loss and Daily Return
-df["Profit/Loss"] = df["SP"] - df["CP"]
-df["Daily_Return"] = df["SP"].pct_change() * 100
+# Session state
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+    st.session_state.username = None
+    st.session_state.role = None
 
-# -------------------------------
-# Streamlit App Interface
-# -------------------------------
-st.title("📈 Stock Market Dashboard")
-st.write("Analyze daily stock performance for each customer using pandas and Streamlit.")
+def login_page():
+    st.subheader("🔐 Login to your account")
 
-# Input field for Customer ID
-customer_id = st.text_input("Enter Customer ID (e.g., C01, C02, ...):")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
 
-if customer_id:
-    if customer_id in df["Customer ID"].values:
-        customer_data = df[df["Customer ID"] == customer_id]
+    if st.button("Login"):
+        success, role = authenticate_user(username, password)
+        if success:
+            st.session_state.logged_in = True
+            st.session_state.username = username
+            st.session_state.role = role
+            st.success(f"Welcome {username}!")
+            st.experimental_rerun()
+        else:
+            st.error("Invalid credentials")
 
-        st.subheader(f"📊 Details for {customer_id}")
-        st.dataframe(customer_data)
+    st.info("Don't have an account? Create one below 👇")
+    if st.button("Register New User"):
+        st.session_state.show_register = True
+        st.experimental_rerun()
 
-        # Show profit/loss details
-        profit = float(customer_data["Profit/Loss"].values[0])
-        daily_return = float(customer_data["Daily_Return"].fillna(0).values[0])
+def register_page():
+    st.subheader("🧾 Register New Account")
 
-        st.write(f"**Profit/Loss:** ₹{profit}")
-        st.write(f"**Daily Return:** {daily_return:.2f}%")
+    username = st.text_input("New Username")
+    password = st.text_input("New Password", type="password")
+    confirm = st.text_input("Confirm Password", type="password")
 
-        # Plot Profit/Loss Trend
-        fig, ax = plt.subplots()
-        df.plot(x="Date", y="Profit/Loss", kind="line", marker="o", ax=ax)
-        plt.title("Profit/Loss Trend Over Time")
-        plt.xlabel("Date")
-        plt.ylabel("Profit/Loss")
-        st.pyplot(fig)
+    if password and confirm and password != confirm:
+        st.error("Passwords do not match")
 
-    else:
-        st.error("❌ Customer ID not found! Please enter a valid one (like C01–C07).")
+    if st.button("Create Account"):
+        if password == confirm:
+            success, msg = create_user(username, password)
+            if success:
+                st.success(msg)
+                st.session_state.show_register = False
+                st.experimental_rerun()
+            else:
+                st.error(msg)
 
-# Show full dataset (optional)
-with st.expander("View Full Stock Data"):
-    st.dataframe(df)
+    if st.button("Back to Login"):
+        st.session_state.show_register = False
+        st.experimental_rerun()
 
-
+def logout():
+    st.session_state.logged_in = False
+    st.session_sta_
